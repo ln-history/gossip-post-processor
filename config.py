@@ -1,0 +1,32 @@
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+VALKEY_HOST = os.getenv("VALKEY_HOST", "localhost")
+VALKEY_PORT = int(os.getenv("VALKEY_PORT", 6379))
+VALKEY_PASSWORD = os.getenv("VALKEY_PASSWORD", None)
+
+KAFKA_SERVER_IP_ADDRESS = os.getenv("KAFKA_SERVER_IP_ADDRESS", "localhost")
+KAFKA_SERVER_PORT = int(os.getenv("KAFKA_SERVER_PORT", 9092))
+KAFKA_TOPIC_TO_PUBLISH = os.getenv(
+    "KAFKA_TOPIC_TO_PUBLISH",
+)
+KAFKA_TOPIC_TO_SUBSCRIBE = os.getenv("KAFKA_TOPIC_TO_SUBSCRIBE", "gossip")
+
+COUCHDB_URL = os.getenv("COUCHDB_URL")
+COUCHDB_USER = os.getenv("COUCHDB_USER")
+COUCHDB_PASSWORD = os.getenv("COUCHDB_PASSWORD")
+
+POSTGRE_SQL_HOST = os.getenv("POSTGRE_SQL_HOST")
+POSTGRE_SQL_PORT = os.getenv("POSTGRE_SQL_PORT", 5432)
+POSTGRE_SQL_DB = os.getenv("POSTGRE_SQL_DB")
+POSTGRE_SQL_USER = os.getenv("POSTGRE_SQL_USER")
+POSTGRE_SQL_PASSWORD = os.getenv("POSTGRE_SQL_PASSWORD")
+
+EXPLORER_RPC_URL = os.getenv("EXPLORER_RPC_URL")
+PROXIES = {
+    "http": os.getenv("HTTP_PROXY"),
+    "https": os.getenv("HTTPS_PROXY"),
+}

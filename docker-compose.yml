@@ -1,0 +1,11 @@
+services:
+  gossip-post-processor:
+    build: .
+    container_name: gossip-post-processor
+    env_file: .env
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    network_mode: host
