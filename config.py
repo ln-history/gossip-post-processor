@@ -26,7 +26,4 @@ POSTGRE_SQL_USER = os.getenv("POSTGRE_SQL_USER")
 POSTGRE_SQL_PASSWORD = os.getenv("POSTGRE_SQL_PASSWORD")
 
 EXPLORER_RPC_URL = os.getenv("EXPLORER_RPC_URL")
-PROXIES = {
-    "http": os.getenv("HTTP_PROXY"),
-    "https": os.getenv("HTTPS_PROXY"),
-}
+EXPLORER_RPC_PASSWORD = os.getenv("EXPLORER_RPC_PASSWORD")

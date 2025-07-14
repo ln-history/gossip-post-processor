@@ -1,98 +1,87 @@
 from typing import List, Optional
+from datetime import datetime, timezone
 
-from lnhistoryclient.model.types import PlatformEvent, PlatformEventMetadata
+from lnhistoryclient.model.platform_internal.PlatformEvent import PlatformEvent
+from lnhistoryclient.model.platform_internal.PlatformEventMetadata import PlatformEventMetadata
 from lnhistoryclient.model.NodeAnnouncement import NodeAnnouncement
 from lnhistoryclient.constants import MSG_TYPE_NODE_ANNOUNCEMENT
 from lnhistoryclient.parser.parser import parse_node_announcement
 from lnhistoryclient.parser.common import strip_known_message_type
 
 from CustomLogger import CustomLogger
+from kafka import KafkaProducer
 from common import handle_platform_problem
-from model.GossipIdMsgTypeTimestamp import GossipIdMsgTypeTimestamp
+from model.Node import Node
 from PostgreSQLDataStore import PostgreSQLDataStore
 
-def add_node_announcement_to_db(platformEvent: PlatformEvent) -> None:
-    global datastore, logger
-
-    datastore: PostgreSQLDataStore
-    logger: CustomLogger
+def add_node_announcement_to_db(platformEvent: PlatformEvent, datastore: PostgreSQLDataStore, logger: CustomLogger, producer: KafkaProducer) -> None:
+    """
+    Workflow node_announcement insertion:
+    1. Parse node_announcement to get values: timestamp, node_id
+    2. Do a transaction:
+        1. Insert into raw_gossip (gossip_message_type: 257)
+        2. Insert into nodes_raw_gossip
+        3. Is node_id known ?  (Check in PostgreSQL nodes table)
+            -> If unknown: Add new row in nodes table with values (node_id, (timestamp, timestamp))
+            -> If known: 
+                -> Get row from nodes table of that node_id 
+                -> Compare: from_timestamp with timestamp. If timestamp is lower than from_timestamp: Update from_timestamp
+                -> Compare: last_seen: If timestamp is bigger than last_seen: Update last_seen
+                (Note: Of the previous two comparisions ONLY ONE can be true)
+    In case the transaction breaks the database -> everything gets aborted (Atomic: No modification on the database per message):
+    The PlatformEvent containing the node_announcement gets sent to Kafka topic 'problem.node' -> Will be inspected at a later point
+    """
 
     try:
-        gossip_metadata: PlatformEventMetadata = platformEvent.get("metadata")
-        gossip_id: bytes = bytes.fromhex(gossip_metadata.get("id"))
-        gossip_id_str: str = gossip_id.hex()
+        metadata: PlatformEventMetadata = platformEvent.metadata
+        gossip_id: str = metadata.id
 
-        gossip_timestamp: int = gossip_metadata.get("timestamp")
-        raw_gossip_bytes: bytes = bytes.fromhex(platformEvent.get("raw_hex"))  # "raw_gossip_bytes"
+        raw_gossip_hex: str = platformEvent.raw_gossip_hex
 
         # 1 Parse NodeAnnouncement
-        parsed: NodeAnnouncement = parse_node_announcement(strip_known_message_type(raw_gossip_bytes))
+        parsed: NodeAnnouncement = parse_node_announcement(strip_known_message_type(bytes.fromhex(raw_gossip_hex)))
 
-        node_id: str = parsed.node_id
+        node_id: bytes = parsed.node_id
         node_id_str: str = parsed.node_id.hex()
         timestamp: int = parsed.timestamp
 
-        timestamps = []
+        logger.debug(f"Starting to add node_announcement with gossip_id {gossip_id} and node_id {node_id_str} and timestamp {timestamp} to db")
 
-        # 2 - 1: Analyze the msg_type of previously collected messages with identical node_id
-        gossip_id_msg_type_timestamp_objects: List[GossipIdMsgTypeTimestamp] = (
-            datastore.get_gossip_id_msg_type_timestamp_by_node_id(node_id_str)
-        )
+        # 2 Start database transaction
+        with datastore.transaction() as cur:
+            timestamp_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            
+            # 1 Insert NodeAnnouncement to RawGossip
+            logger.debug(f"Trying to insert raw_gossip with gossip_id {gossip_id}")
+            datastore.add_raw_gossip(cur, bytes.fromhex(gossip_id), MSG_TYPE_NODE_ANNOUNCEMENT, timestamp, bytes.fromhex(raw_gossip_hex))
 
-        if len(gossip_id_msg_type_timestamp_objects) > 0:
-            # 2 - 2: Check for an exact duplicate of this NodeAnnouncement
-            if (
-                GossipIdMsgTypeTimestamp(gossip_id=gossip_id, msg_type=MSG_TYPE_NODE_ANNOUNCEMENT, timestamp=timestamp)
-                in gossip_id_msg_type_timestamp_objects
-            ):
-                logger.error(
-                    f"Got duplicate PlatformEvent: NodeAnnouncement with node_id {node_id_str} and gossip_id {gossip_id_str} already exists in Nodes table! - Skipping further handling"
-                )
-                handle_platform_problem(platformEvent, "duplicate")
-                return
+            # 2 Insert NodeAnnouncement to NodesRawGossip
+            logger.debug(f"Trying to link gossip_id {gossip_id} to node_id {node_id_str} in NodesRawGossip")
+            datastore.add_nodes_raw_gossip(cur, bytes.fromhex(gossip_id), node_id)
 
-            # 2 - 3: Get earliest and latest timestamps among all NodesRawGossips (could be NodeAnnouncements as well as ChannelAnnouncements)
-            timestamps = [
-                entry.timestamp
-                for entry in gossip_id_msg_type_timestamp_objects
-                if entry.msg_type == MSG_TYPE_NODE_ANNOUNCEMENT
-            ]
+            # 3 Handle node
+            node_data: Node = datastore.get_node_by_node_id(cur, node_id)
 
-        # 3: Add NodeAnnouncement to RawGossip
-        logger.info(f"Adding NodeAnnouncement with gossip_id {gossip_id_str} to RawGossip table.")
-        datastore.add_raw_gossip(gossip_id, MSG_TYPE_NODE_ANNOUNCEMENT, timestamp, raw_gossip_bytes)
+            if not node_data:
+                # Unknown: Adding new node
+                logger.debug(f"Trying to add new node with node_id {node_id_str} and from_timestamp {timestamp} and last_seen {timestamp}")
+                datastore.add_node(cur, node_id, timestamp, timestamp)
+            else:
+                # Known: Checking timestamps and if necessary updating from_timestamp, last_seen
+                current_from_ts = node_data.from_timestamp
+                current_last_seen = node_data.last_seen
 
-        # 5 - 1: If the node_id already exists in the Nodes table, update correctly (consider timestamps etc.)
-        if timestamps:
+                if current_from_ts > timestamp_dt:
+                    logger.warning(f"Earlier timestamp for node_id {node_id_str} found; Trying to update from_timestamp to {timestamp}")
+                    datastore.update_node_from_timestamp(cur, node_id, timestamp)
 
-            earliest_timestamp = min(timestamps)
-            latest_timestamp = max(timestamps)
 
-            # 5 - 1 - 1: Update from_timestamp if this handled NodeAnnouncements timestamp is older than previously known
-            if earliest_timestamp > timestamp:
-                logger.warning(
-                    f"Found an earlier NodeAnnouncement with gossip_id {gossip_id_str} for node_id {node_id_str}."
-                )
-                logger.warning(f"Updating node_id {node_id_str} from_timestamp to {timestamp}.")
-                datastore.update_node_from_timestamp(node_id, timestamp)
+                elif current_last_seen < timestamp_dt:
+                    logger.info(f"Newer timestamp for node_id {node_id_str}; Trying to update last_seen to {timestamp}")
+                    datastore.update_node_last_seen(cur, node_id, timestamp)
 
-            # 5 - 1 - 2: Update last_seen if this handled NodeAnnouncement has a newer timestamp than the latest
-            if latest_timestamp < timestamp:
-                logger.info(
-                    f"Found a more recent NodeAnnouncement with gossip_id {gossip_id_str} for node_id {node_id_str}. Updating last_seen to {timestamp}."
-                )
-                datastore.update_node_last_seen(node_id, timestamp)
-
-        # 5 - 2: Add new node in Nodes table, set `from_timestamp` and `last_seen` to `timestamp`
-        else:
-            logger.info(f"Adding new node with node_id {node_id_str} and timestamp {timestamp} to nodes table.")
-            datastore.add_node(node_id, timestamp, timestamp)
-
-        # 4: Add NodeAnnouncement to NodesRawGossip
-        logger.info(
-            f"Adding NodeAnnouncement: node_id {node_id_str} and gossip_id {gossip_id_str} to NodesRawGossip table."
-        )
-        datastore.add_nodes_raw_gossip(gossip_id, node_id)
+        logger.info(f"Successfully handled database transaction for node_announcement with gossip_id {gossip_id}.")
 
     except Exception as e:
-        logger.critical(f"An Error occured when handing platformEvent {platformEvent}: {e}")
+        logger.critical(f"An Error occured when handing node_announcement platformEvent {platformEvent}: {e}")
+        handle_platform_problem(platformEvent, "problem.node", logger, producer)

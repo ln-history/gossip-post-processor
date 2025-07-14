@@ -13,10 +13,10 @@ from PostgreSQLDataStore import PostgreSQLDataStore
 
 
 # Think about more sophisticated testing utilizing the scid
-def handle_channel_dying(platformEvent: PlatformEvent) -> None:
-    global datastore, logger
-    datastore: PostgreSQLDataStore
-    logger: CustomLogger
+def handle_channel_dying(platformEvent: PlatformEvent, datastore, logger, producer) -> None:
+    # global datastore, logger
+    # datastore: PostgreSQLDataStore
+    # logger: CustomLogger
     
     try:
         gossip_metadata: PlatformEventMetadata = platformEvent.get("metadata")
@@ -39,14 +39,14 @@ def handle_channel_dying(platformEvent: PlatformEvent) -> None:
         block: dict = get_block_by_block_height(height, logger)
         if not block:
             logger.error(f"Could not retrieve block at height {height}. - Skipping further handling")
-            handle_platform_problem(platformEvent, "problem.channel")
+            handle_platform_problem(platformEvent, "problem.channel", logger, producer)
             return
 
         # 2 - 2: Check if timestamp in block exists
         block_timestamp: int = block.get("time", None)
         if not block_timestamp:
             logger.error(f"Retrieved block {block} without `time` at height {height}. - Skipping further handling")
-            handle_platform_problem(platformEvent, "problem.channel")
+            handle_platform_problem(platformEvent, "problem.channel", logger, producer)
             return
 
         # 3 - 1: Check if channel with scid exists in DB
@@ -72,7 +72,7 @@ def handle_channel_dying(platformEvent: PlatformEvent) -> None:
                 logger.warning(
                     f"Found ChannelUpdates that happened *after* the ChannelDying timestamp ({block_timestamp}). This is inconsistent."
                 )
-                handle_platform_problem(platformEvent, "problem.channel")
+                handle_platform_problem(platformEvent, "problem.channel", logger, producer)
                 return
 
             # 3 - 4: Update to_timestamp of that channel to block_timestamp

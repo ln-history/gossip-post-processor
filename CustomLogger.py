@@ -2,6 +2,7 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 from typing import Any
+from datetime import datetime
 
 
 class CustomLogger:
@@ -11,7 +12,7 @@ class CustomLogger:
         self.logger = logger
 
     @staticmethod
-    def create(log_dir: str = "logs", log_file: str = "gossip_post_processor.log") -> "CustomLogger":
+    def create(log_dir: str = "logs", log_file_base: str = "gossip_post_processor.log") -> "CustomLogger":
         # Register TRACE level
         logging.addLevelName(CustomLogger.TRACE_LEVEL_NUM, "TRACE")
 
@@ -25,8 +26,12 @@ class CustomLogger:
         logger = logging.getLogger("gossip_post_processor")
         logger.setLevel(logging.DEBUG)  # Enable TRACE and DEBUG levels
 
-        log_path = os.path.join(log_dir, log_file)
-        file_handler = RotatingFileHandler(log_path, maxBytes=5_000_000, backupCount=5)
+        # Add timestamp to filename
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        log_filename = f"{log_file_base}_{timestamp}.log"
+        log_path = os.path.join(log_dir, log_filename)
+        file_handler = RotatingFileHandler(log_path, maxBytes=5_000_000, backupCount=100)
+
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(formatter)
 

@@ -2,7 +2,7 @@ import hashlib
 import json
 from typing import Optional
 
-from lnhistoryclient.model.types import GossipCache
+from lnhistoryclient.model.types import GossipIdCacheValue
 from valkey import Valkey
 
 from config import VALKEY_HOST, VALKEY_PASSWORD, VALKEY_PORT
@@ -25,6 +25,10 @@ class ValkeyCache:
     @staticmethod
     def hash_raw_hex(raw_hex: str) -> str:
         return hashlib.sha256(raw_hex.encode()).hexdigest()
+    
+    @staticmethod
+    def hash_raw_bytes(raw_bytes: bytes) -> bytes:
+        return hashlib.sha256(raw_bytes).digest()
 
     def get_metadata_key(self, msg_type: str, msg_hash: str) -> str:
         return f"gossip:{msg_type}:{msg_hash}"

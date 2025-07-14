@@ -5,4 +5,4 @@ python-dotenv
 requests
 requests[socks]
 psycopg2-binary
-lnhistoryclient==3.1.0
+lnhistoryclient==3.3.1

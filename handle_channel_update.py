@@ -11,10 +11,26 @@ from common import split_scid, handle_platform_problem
 from model.GossipIdMsgTypeTimestamp import GossipIdMsgTypeTimestamp
 from PostgreSQLDataStore import PostgreSQLDataStore
 
-def add_channel_update_to_db(platformEvent: PlatformEvent) -> None:
-    global datastore, logger
-    datastore: PostgreSQLDataStore
-    logger: CustomLogger
+def add_channel_update_to_db(platformEvent: PlatformEvent, datastore, logger, producer) -> None:
+
+    """
+    Workflow channel_update insertion:
+    1. Parse channel_update to get values: scid, direction, timestamp
+    2. Start a transaction:
+        1. Add raw_gossip table
+        2. Add channels_raw_gossip table
+        3. Check if channel with scid already exists
+            1. If it exists: Check if updates exist
+                1. If updates exist: find the most recent and set upper(validity) to timestamp and insert update
+                2. If it does not exist: add channel_update
+            2. If it does not exist: create "incomplete channel":
+                1. Get timestamp (of channel creation) via scid
+                2. Get amount_sat via scid
+                3. Add "incomplete channel" to db (without source_node_id and target_node_id)
+                4. Add channel_update
+    In case the transaction breaks the database -> everything gets aborted (Atomic: No modification on the database per message):
+    The PlatformEvent containing the channel_announcement gets sent to Kafka topic 'problem.channel.*' -> Will be inspected at a later point
+    """
 
     try:
         gossip_metadata: PlatformEventMetadata = platformEvent.get("metadata")
@@ -48,14 +64,14 @@ def add_channel_update_to_db(platformEvent: PlatformEvent) -> None:
                 logger.error(
                     f"Got duplicate PlatformEvent: ChannelUpdate with scid {scid} and gossip_id {gossip_id_str} already exists! Skipping."
                 )
-                handle_platform_problem(platformEvent, "duplicate")
+                handle_platform_problem(platformEvent, "duplicate", logger, producer)
                 return
 
             # 2 - 1 - 2: Multiple ChannelAnnouncements found for a single scid
             announcements = [entry for entry in history if entry.msg_type == MSG_TYPE_CHANNEL_ANNOUNCEMENT]
             if len(announcements) > 1:
                 logger.error(f"Found multiple ChannelAnnouncements for identical scid {scid}. Skipping.")
-                handle_platform_problem(platformEvent, "problem.channel")
+                handle_platform_problem(platformEvent, "problem.channel", logger, producer)
                 return
 
             # 2 - 1 - 3 : Check if an ChannelAnnouncement exists for the scid
