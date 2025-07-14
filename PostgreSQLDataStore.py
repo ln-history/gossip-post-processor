@@ -12,7 +12,8 @@ from config import (
     POSTGRE_SQL_USER,
 )
 from CustomLogger import CustomLogger
-from model.ChannelIdTranslationResult import ChannelIdTranslationResult
+from model.ChannelInDb import ChannelInDb
+from model.ChannelUpdateInDb import ChannelUpdateInDb
 from model.GossipIdMsgType import GossipIdMsgType
 from model.GossipIdMsgTypeTimestamp import GossipIdMsgTypeTimestamp
 
@@ -65,31 +66,8 @@ class PostgreSQLDataStore:
             cur.close()
             self._put_conn(conn)
 
-    def execute(
-        self,
-        sql: str,
-        params: Optional[Union[tuple[Any, ...], list[Any]]] = None,
-        debug_message: Optional[str] = None,
-    ) -> None:
-        conn = self._get_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
-                conn.commit()
-                if debug_message:
-                    self.logger.debug(debug_message)
-        except errors.UniqueViolation as e:
-            conn.rollback()
-            self.logger.critical(f"Duplicate entry ignored: {e}")
-        except Exception as e:
-            conn.rollback()
-            self.logger.critical(f"SQL execution failed: {e}")
-        finally:
-            self._put_conn(conn)
-
     # --- RawGossip ---
-
-    def add_raw_gossip(self, cur, gossip_id: bytes, gossip_type: int, timestamp: int, raw_gossip_bytes: bytes):
+    def add_raw_gossip(self, cur: cursor.connection, gossip_id: bytes, gossip_type: int, timestamp: int, raw_gossip_bytes: bytes):
         cur.execute(
             """
             INSERT INTO raw_gossip (gossip_id, gossip_message_type, timestamp, raw_gossip)
@@ -100,8 +78,36 @@ class PostgreSQLDataStore:
         )
 
     # --- CHANNELS ---
+    def get_channel_by_scid(self, cur: cursor.connection, scid: str) -> Optional[ChannelInDb]:
+        cur.execute(
+            """
+            SELECT scid, source_node_id, target_node_id, lower(validity), upper(validity), amount_sat 
+            FROM channels
+            WHERE scid = %s
+            """,
+            (scid,)
+        )
+        row = cur.fetchone()
+        if row:
+            scid = row[0]
+            source_node_id: bytes = row[1].tobytes() if row[1] is not None else None
+            target_node_id: bytes = row[1].tobytes() if row[2] is not None else None
+            from_timestamp: datetime = row[3]
+            to_timestamp: datetime = row[4]
+            amount_sat: int = row[5]
 
-    def add_channel(self, cur, scid: str, source_node_id: bytes, target_node_id: bytes, from_timestamp: int, amount_sat: int) -> None:
+            return ChannelInDb(
+                scid=scid,
+                source_node_id=source_node_id,
+                target_node_id=target_node_id,
+                from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
+                amount_sat=amount_sat
+            )
+        return None
+
+
+    def add_channel(self, cur: cursor.connection, scid: str, source_node_id: bytes, target_node_id: bytes, from_timestamp: int, amount_sat: int) -> None:
         cur.execute(
             """
             INSERT INTO channels (scid, source_node_id, target_node_id, validity, amount_sat)
@@ -111,62 +117,18 @@ class PostgreSQLDataStore:
             (scid, source_node_id, target_node_id, from_timestamp, amount_sat)
         )
 
-    def add_incomplete_channel(self, gossip_id: bytes, scid: str, from_timestamp: int) -> None:
-        self.execute(
+    def add_incomplete_channel(self, cur: cursor.connection, scid: str, from_timestamp: int, amount_sat: int) -> None:
+        cur.execute(
             """
-            INSERT INTO channels (gossip_id, scid, from_timestamp)
-            VALUES (%s, %s, to_timestamp(%s))
+            INSERT INTO channels (scid, source_node_id, target_node_id, validity, amount_sat)
+            VALUES (%s, NULL, NULL, tstzrange(to_timestamp(%s), NULL), %s)
             ON CONFLICT (scid) DO NOTHING
             """,
-            (gossip_id, scid, from_timestamp),
-            debug_message=f"[add_incomplete_channel] Inserted incomplete channel: scid={scid}",
+            (scid, from_timestamp, amount_sat)
         )
 
-    # --- CHANNEL RAW GOSSIP ---
-    def get_gossip_id_msg_type_by_scid(self, scid: str) -> List[GossipIdMsgType]:
-        conn = self._get_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT crg.gossip_id, rg.gossip_message_type
-                    FROM channels_raw_gossip crg
-                    JOIN raw_gossip rg ON crg.gossip_id = rg.gossip_id
-                    WHERE crg.scid = %s
-                    """,
-                    (scid,),
-                )
-                rows = cur.fetchall()
-                return [GossipIdMsgType(gossip_id=row[0], msg_type=row[1]) for row in rows]
-        except Exception as e:
-            self.logger.critical(f"[get_gossip_id_msg_type_by_scid] Error: {e}")
-            return []
-        finally:
-            self._put_conn(conn)
 
-    def get_gossip_id_msg_type_timestamp_by_scid(self, scid: str) -> List[GossipIdMsgTypeTimestamp]:
-        conn = self._get_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT crg.gossip_id, rg.gossip_message_type, EXTRACT(EPOCH FROM c.from_timestamp)::INT
-                    FROM channels_raw_gossip crg
-                    JOIN raw_gossip rg ON crg.gossip_id = rg.gossip_id
-                    JOIN channels c ON crg.gossip_id = c.gossip_id
-                    WHERE crg.scid = %s
-                    """,
-                    (scid,),
-                )
-                rows = cur.fetchall()
-                return [GossipIdMsgTypeTimestamp(gossip_id=row[0], msg_type=row[1], timestamp=row[2]) for row in rows]
-        except Exception as e:
-            self.logger.critical(f"[get_gossip_id_msg_type_timestamp_by_scid] Error: {e}")
-            return []
-        finally:
-            self._put_conn(conn)
-
-    def add_channels_raw_gossip(self, cur, gossip_id: bytes, scid: str) -> None:
+    def add_channels_raw_gossip(self, cur: cursor.connection, gossip_id: bytes, scid: str) -> None:
         cur.execute(
             """
             INSERT INTO channels_raw_gossip (gossip_id, scid)
@@ -176,107 +138,89 @@ class PostgreSQLDataStore:
             (gossip_id, scid)
         )
 
+    def update_channel_close(self, cur: cursor.connection, scid: str, to_timestamp: int):
+        cur.execute(
+            """
+            UPDATE channels
+            SET validity = tstzrange(upper(validity), to_timestamp(%s))
+            WHERE scid = %s
+            """,
+            (to_timestamp, scid)
+        )
+
     # --- CHANNEL UPDATES ---
+    def get_channel_updates_by_scid_and_direction(self, cur: cursor.connection, scid: str, direction: bool) -> List[ChannelUpdateInDb]:
+        cur.execute(
+            "SELECT scid, direction, lower(validity), upper(validity) FROM channel_updates WHERE scid = %s AND direction = %s",
+            (scid,direction)
+        )
+        rows = cur.fetchall()
+        result: List[ChannelUpdateInDb] = []
+        for row in rows:
+            scid = row[0]
+            direction = bool(row[1])
+            from_ts: datetime = row[2]
+            last_seen: datetime = row[3]
 
-    def add_channel_update(
+            result.append(ChannelUpdateInDb(
+                scid=scid,
+                direction=direction,
+                from_timestamp=from_ts,
+                last_seen=last_seen
+            ))
+        return result
+    
+    def add_channel_update(self, cur: cursor.connection, scid: str, direction: bool, timestamp_from: int) -> None:
+        cur.execute(
+            """
+            INSERT INTO channel_updates (scid, direction, validity)
+            VALUES (%s, %s, tstzrange(to_timestamp(%s), NULL))
+            ON CONFLICT DO NOTHING
+            """,
+            (scid, direction, timestamp_from)
+        )
+
+
+    def update_channel_update_to_timestamp_by_cu_data(
         self,
-        gossip_id: bytes,
+        cur: cursor.connection,
         scid: str,
-        direction: int,
+        direction: bool,
         from_update_timestamp: int,
-        to_update_timestamp: Optional[int] = None,
+        to_update_timestamp: int
     ) -> None:
-        self.execute(
-            """
-            INSERT INTO channel_updates (gossip_id, scid, direction, from_update_timestamp, to_update_timestamp)
-            VALUES (%s, %s, %s, to_timestamp(%s), to_timestamp(%s))
-            ON CONFLICT (gossip_id) DO NOTHING
-            """,
-            (
-                gossip_id,
-                scid,
-                bool(direction),
-                from_update_timestamp,
-                to_update_timestamp if to_update_timestamp is not None else None,
-            ),
-            debug_message=f"[add_channel_update] gossip_id={gossip_id.hex()}, scid={scid}, direction={direction}",
-        )
-
-    def update_channel_update_to_timestamp_by_gossip_id(self, gossip_id: bytes, timestamp: int) -> None:
-        self.execute(
+        cur.execute(
             """
             UPDATE channel_updates
-            SET to_update_timestamp = to_timestamp(%s)
-            WHERE gossip_id = %s
+            SET validity = tstzrange(lower(validity), to_timestamp(%s))
+            WHERE scid = %s
+            AND direction = %s
+            AND lower(validity) = to_timestamp(%s)
             """,
-            (timestamp, gossip_id),
-            debug_message=f"[update_channel_update_to_timestamp_by_gossip_id] gossip_id={gossip_id.hex()}",
+            (to_update_timestamp, scid, direction, from_update_timestamp)
         )
 
-    def update_channel_update_from_timestamp_by_gossip_id(self, gossip_id: bytes, timestamp: int) -> None:
-        self.execute(
+    def update_channel_update_from_timestamp_by_cu_data(
+        self,
+        cur: cursor.connection,
+        scid: str,
+        direction: bool,
+        from_update_timestamp: int,
+        to_update_timestamp: int
+    ) -> None:
+        cur.execute(
             """
             UPDATE channel_updates
-            SET from_update_timestamp = to_timestamp(%s)
-            WHERE gossip_id = %s
+            SET validity = tstzrange(to_timestamp(%s), upper(validity))
+            WHERE scid = %s
+            AND direction = %s
+            AND lower(validity) = to_timestamp(%s)
             """,
-            (timestamp, gossip_id),
-            debug_message=f"[update_channel_update_from_timestamp_by_gossip_id] gossip_id={gossip_id.hex()}",
-        )
-
-    def update_latest_channel_update_by_scid(self, scid: str, timestamp: int) -> None:
-        self.execute(
-            """
-            UPDATE channel_updates
-            SET to_update_timestamp = to_timestamp(%s)
-            WHERE scid = %s AND to_update_timestamp IS NULL
-            """,
-            (timestamp, scid),
-            debug_message=f"[update_latest_channel_update_by_scid] scid={scid}",
-        )
-
-    # --- CHANNEL ID TRANSLATION ---
-    def get_channel_id_translation_by_scid(self, scid: str) -> List[ChannelIdTranslationResult]:
-        conn = self._get_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT scid, direction, encode(source_node_id, 'hex'), encode(target_node_id, 'hex')
-                    FROM channel_id_translation
-                    WHERE scid = %s
-                    """,
-                    (scid,),
-                )
-                rows = cur.fetchall()
-                return [
-                    ChannelIdTranslationResult(
-                        scid=row[0],
-                        direction=row[1],
-                        source_node_id=row[2],
-                        target_node_id=row[3],
-                    )
-                    for row in rows
-                ]
-        except Exception as e:
-            self.logger.critical(f"[get_channel_id_translation_by_scid] Error: {e}")
-            return []
-        finally:
-            self._put_conn(conn)
-
-    def add_channel_id_translation(self, scid: str, direction: int, node_id_1: bytes, node_id_2: bytes) -> None:
-        self.execute(
-            """
-            INSERT INTO channel_id_translation (scid, direction, source_node_id, target_node_id)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (scid, direction) DO NOTHING
-            """,
-            (scid, bool(direction), node_id_1, node_id_2),
-            debug_message=f"[add_channel_id_translation] scid={scid}, direction={direction}",
+            (to_update_timestamp, scid, direction, from_update_timestamp)
         )
 
     # --- NODES RAW GOSSIP ---
-    def add_nodes_raw_gossip(self, cur, gossip_id, node_id) -> None:
+    def add_nodes_raw_gossip(self, cur: cursor.connection, gossip_id: bytes, node_id: bytes) -> None:
         cur.execute(
             """
             INSERT INTO nodes_raw_gossip (gossip_id, node_id)
@@ -287,7 +231,7 @@ class PostgreSQLDataStore:
         )
 
     # --- NODES ---
-    def get_node_by_node_id(self, cur, node_id: bytes) -> Optional[Node]:
+    def get_node_by_node_id(self, cur: cursor.connection, node_id: bytes) -> Optional[Node]:
         cur.execute(
             "SELECT node_id, lower(validity), upper(validity) FROM nodes WHERE node_id = %s",
             (node_id,)
@@ -305,16 +249,17 @@ class PostgreSQLDataStore:
             )
         return None
 
-    def add_node(self, cur, node_id: bytes, from_ts: int, last_seen_ts: int) -> None:
+    def add_node(self, cur: cursor.connection, node_id: bytes, from_ts: int, last_seen_ts: int) -> None:
         cur.execute(
             """
             INSERT INTO nodes (node_id, validity)
             VALUES (%s, tstzrange(to_timestamp(%s), to_timestamp(%s), '[]'))
+            ON CONFLICT DO NOTHING
             """,
             (node_id, from_ts, last_seen_ts)
         )
 
-    def update_node_from_timestamp(self, cur, node_id: bytes, new_from_ts: int) -> None:
+    def update_node_from_timestamp(self, cur: cursor.connection, node_id: bytes, new_from_ts: int) -> None:
         cur.execute(
             """
             UPDATE nodes
@@ -324,7 +269,7 @@ class PostgreSQLDataStore:
             (new_from_ts, node_id)
         )
 
-    def update_node_last_seen(self, cur, node_id: bytes, new_last_seen_ts: int) -> None:
+    def update_node_last_seen(self, cur: cursor.connection, node_id: bytes, new_last_seen_ts: int) -> None:
         cur.execute(
             """
             UPDATE nodes

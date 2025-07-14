@@ -21,10 +21,10 @@ def add_channel_announcement_to_db(platformEvent: PlatformEvent, datastore: Post
     Workflow node_announcement insertion:
     1. Parse channel_announcement to get values: scid, node_id_1, node_id_2
     1b. Check if node_id_1 is lexicographically lower than node_id_2 -> If not: abort and to nothing
-    2. Get the timestamp by the first part of the scid and get the amount_sat by using all three parts of the scid-> If this fails: abort and do nothing
+    2. Get the timestamp by the first part (block_height) of the scid and get the amount_sat by using all three parts of the scid-> If this fails: abort
     3. Start a transaction:
-        1. Add raw_gossip table
-        2. Add channels_raw_gossip table
+        1. Add to raw_gossip table
+        2. Add to channels_raw_gossip table
         3. Check for both node_id_1 and node_id_2 if the node_id is present in nodes table
             If not: 
                 1. Add (gossip_id, node_id) to nodes_raw_gossip
@@ -135,7 +135,7 @@ def add_channel_announcement_to_db(platformEvent: PlatformEvent, datastore: Post
                     amount_sat
                 )
 
-                logger.info(f"Successfully handled ChannelAnnouncement with scid={scid}, gossip_id={gossip_id}")
+                logger.debug(f"Successfully handled ChannelAnnouncement with scid={scid}, gossip_id={gossip_id}")
 
         except Exception as e:
             logger.error(f"Transaction failed for gossip_id={gossip_id}: {e}")

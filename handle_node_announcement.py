@@ -80,7 +80,7 @@ def add_node_announcement_to_db(platformEvent: PlatformEvent, datastore: Postgre
                     logger.info(f"Newer timestamp for node_id {node_id_str}; Trying to update last_seen to {timestamp}")
                     datastore.update_node_last_seen(cur, node_id, timestamp)
 
-        logger.info(f"Successfully handled database transaction for node_announcement with gossip_id {gossip_id}.")
+        logger.debug(f"Successfully handled database transaction for node_announcement of node with node_id {node_id_str} with gossip_id {gossip_id}.")
 
     except Exception as e:
         logger.critical(f"An Error occured when handing node_announcement platformEvent {platformEvent}: {e}")
