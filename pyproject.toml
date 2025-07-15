@@ -1,6 +1,6 @@
 [project]
 name = "gossip-post-processor"
-version = "0.1.1"
+version = "1.0.0"
 description = "A tool to efficiently insert gossip messages of the Bitcoin Lightning Network with additional metadata into a database"
 authors = [
     { name = "Fabian Kraus", email = "fabian.felix.kraus@gmail.com" }
