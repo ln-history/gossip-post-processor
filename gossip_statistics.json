@@ -1,0 +1,325 @@
+[
+  {
+    "batch_id": 1,
+    "batch_duration_sec": 13.6724,
+    "messages_per_second": 7.31,
+    "types": {
+      "node_announcement": {
+        "count": 21,
+        "total_duration_sec": 2.8672,
+        "average_duration_sec": 0.136531
+      },
+      "channel_update": {
+        "count": 79,
+        "total_duration_sec": 9.7945,
+        "average_duration_sec": 0.123981
+      }
+    }
+  },
+  {
+    "batch_id": 1,
+    "batch_duration_sec": 13.3252,
+    "messages_per_second": 7.5,
+    "types": {
+      "node_announcement": {
+        "count": 21,
+        "total_duration_sec": 3.2283,
+        "average_duration_sec": 0.153728
+      },
+      "channel_update": {
+        "count": 79,
+        "total_duration_sec": 9.9615,
+        "average_duration_sec": 0.126095
+      }
+    }
+  },
+  {
+    "batch_id": 2,
+    "batch_duration_sec": 14.177,
+    "messages_per_second": 7.05,
+    "types": {
+      "node_announcement": {
+        "count": 25,
+        "total_duration_sec": 4.2506,
+        "average_duration_sec": 0.170026
+      },
+      "channel_update": {
+        "count": 75,
+        "total_duration_sec": 9.9173,
+        "average_duration_sec": 0.132231
+      }
+    }
+  },
+  {
+    "batch_id": 3,
+    "batch_duration_sec": 18.4495,
+    "messages_per_second": 5.42,
+    "types": {
+      "node_announcement": {
+        "count": 32,
+        "total_duration_sec": 7.4921,
+        "average_duration_sec": 0.234128
+      },
+      "channel_update": {
+        "count": 68,
+        "total_duration_sec": 10.9493,
+        "average_duration_sec": 0.161019
+      }
+    }
+  },
+  {
+    "batch_id": 1,
+    "batch_duration_sec": 16.0335,
+    "messages_per_second": 6.24,
+    "types": {
+      "node_announcement": {
+        "count": 21,
+        "total_duration_sec": 2.8059,
+        "average_duration_sec": 0.133613
+      },
+      "channel_update": {
+        "count": 79,
+        "total_duration_sec": 8.8585,
+        "average_duration_sec": 0.112133
+      }
+    }
+  },
+  {
+    "batch_id": 2,
+    "batch_duration_sec": 11.1957,
+    "messages_per_second": 8.93,
+    "types": {
+      "node_announcement": {
+        "count": 25,
+        "total_duration_sec": 3.2404,
+        "average_duration_sec": 0.129616
+      },
+      "channel_update": {
+        "count": 75,
+        "total_duration_sec": 7.9471,
+        "average_duration_sec": 0.105961
+      }
+    }
+  },
+  {
+    "batch_id": 3,
+    "batch_duration_sec": 11.528,
+    "messages_per_second": 8.67,
+    "types": {
+      "node_announcement": {
+        "count": 32,
+        "total_duration_sec": 4.2554,
+        "average_duration_sec": 0.132981
+      },
+      "channel_update": {
+        "count": 68,
+        "total_duration_sec": 7.2647,
+        "average_duration_sec": 0.106833
+      }
+    }
+  },
+  {
+    "batch_id": 4,
+    "batch_duration_sec": 26.8005,
+    "messages_per_second": 3.73,
+    "types": {
+      "node_announcement": {
+        "count": 26,
+        "total_duration_sec": 4.3385,
+        "average_duration_sec": 0.166867
+      },
+      "channel_update": {
+        "count": 74,
+        "total_duration_sec": 22.4508,
+        "average_duration_sec": 0.30339
+      }
+    }
+  },
+  {
+    "batch_id": 5,
+    "batch_duration_sec": 39.5171,
+    "messages_per_second": 2.53,
+    "types": {
+      "node_announcement": {
+        "count": 36,
+        "total_duration_sec": 5.5752,
+        "average_duration_sec": 0.154867
+      },
+      "channel_update": {
+        "count": 64,
+        "total_duration_sec": 33.9313,
+        "average_duration_sec": 0.530177
+      }
+    }
+  },
+  {
+    "batch_id": 6,
+    "batch_duration_sec": 28.617,
+    "messages_per_second": 3.49,
+    "types": {
+      "node_announcement": {
+        "count": 58,
+        "total_duration_sec": 8.3085,
+        "average_duration_sec": 0.14325
+      },
+      "channel_update": {
+        "count": 42,
+        "total_duration_sec": 20.2257,
+        "average_duration_sec": 0.481564
+      }
+    }
+  },
+  {
+    "batch_id": 7,
+    "batch_duration_sec": 47.103,
+    "messages_per_second": 2.12,
+    "types": {
+      "node_announcement": {
+        "count": 21,
+        "total_duration_sec": 3.474,
+        "average_duration_sec": 0.165427
+      },
+      "channel_update": {
+        "count": 79,
+        "total_duration_sec": 43.6163,
+        "average_duration_sec": 0.552105
+      }
+    }
+  },
+  {
+    "batch_id": 1,
+    "batch_duration_sec": 17.1719,
+    "messages_per_second": 5.82,
+    "types": {
+      "node_announcement": {
+        "count": 58,
+        "total_duration_sec": 7.7626,
+        "average_duration_sec": 0.133839
+      },
+      "channel_update": {
+        "count": 42,
+        "total_duration_sec": 5.076,
+        "average_duration_sec": 0.120858
+      }
+    }
+  },
+  {
+    "batch_id": 2,
+    "batch_duration_sec": 11.4463,
+    "messages_per_second": 8.74,
+    "types": {
+      "node_announcement": {
+        "count": 21,
+        "total_duration_sec": 2.8135,
+        "average_duration_sec": 0.133975
+      },
+      "channel_update": {
+        "count": 79,
+        "total_duration_sec": 8.6253,
+        "average_duration_sec": 0.109181
+      }
+    }
+  },
+  {
+    "batch_id": 1,
+    "batch_duration_sec": 17.394,
+    "messages_per_second": 5.75,
+    "types": {
+      "node_announcement": {
+        "count": 58,
+        "total_duration_sec": 7.981,
+        "average_duration_sec": 0.137603
+      },
+      "channel_update": {
+        "count": 42,
+        "total_duration_sec": 5.0935,
+        "average_duration_sec": 0.121274
+      }
+    }
+  },
+  {
+    "batch_id": 2,
+    "batch_duration_sec": 11.516,
+    "messages_per_second": 8.68,
+    "types": {
+      "node_announcement": {
+        "count": 21,
+        "total_duration_sec": 2.8268,
+        "average_duration_sec": 0.134609
+      },
+      "channel_update": {
+        "count": 79,
+        "total_duration_sec": 8.6819,
+        "average_duration_sec": 0.109897
+      }
+    }
+  },
+  {
+    "batch_id": 3,
+    "batch_duration_sec": 89.1894,
+    "messages_per_second": 1.12,
+    "types": {
+      "node_announcement": {
+        "count": 5,
+        "total_duration_sec": 0.755,
+        "average_duration_sec": 0.151009
+      },
+      "channel_update": {
+        "count": 95,
+        "total_duration_sec": 88.4196,
+        "average_duration_sec": 0.930733
+      }
+    }
+  },
+  {
+    "batch_id": 4,
+    "batch_duration_sec": 48.8983,
+    "messages_per_second": 2.05,
+    "types": {
+      "node_announcement": {
+        "count": 13,
+        "total_duration_sec": 1.8467,
+        "average_duration_sec": 0.142056
+      },
+      "channel_update": {
+        "count": 87,
+        "total_duration_sec": 47.0418,
+        "average_duration_sec": 0.54071
+      }
+    }
+  },
+  {
+    "batch_id": 1,
+    "batch_duration_sec": 16.8428,
+    "messages_per_second": 5.94,
+    "types": {
+      "node_announcement": {
+        "count": 58,
+        "total_duration_sec": 7.5724,
+        "average_duration_sec": 0.130558
+      },
+      "channel_update": {
+        "count": 42,
+        "total_duration_sec": 4.9236,
+        "average_duration_sec": 0.117229
+      }
+    }
+  },
+  {
+    "batch_id": 1,
+    "batch_duration_sec": 17.3421,
+    "messages_per_second": 5.77,
+    "types": {
+      "node_announcement": {
+        "count": 58,
+        "total_duration_sec": 8.0022,
+        "average_duration_sec": 0.137969
+      },
+      "channel_update": {
+        "count": 42,
+        "total_duration_sec": 4.8484,
+        "average_duration_sec": 0.115437
+      }
+    }
+  }
+]

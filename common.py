@@ -1,19 +1,19 @@
-import CustomLogger
-from lnhistoryclient.model.platform_internal.PlatformEvent import PlatformEvent
-from lnhistoryclient.model.platform_internal.PlatformEventMetadata import PlatformEventMetadata
-from kafka import KafkaProducer
+from logging import Logger
 
-def handle_platform_problem(platformEvent: PlatformEvent, topic: str, logger: CustomLogger, producer: KafkaProducer) -> None:
-    # global logger, producer
-    
+from kafka import KafkaProducer
+from lnhistoryclient.model.platform_internal.PlatformEvent import PlatformEvent
+
+
+def handle_platform_problem(platformEvent: PlatformEvent, topic: str, logger: Logger, producer: KafkaProducer) -> None:
+
     metadata = platformEvent.metadata
     id = metadata.id
     logger.error(f"Handling error: Publishing PlatformEvent with gossip_id {id} to {topic}")
     producer.send(topic, value=platformEvent.to_dict())
 
 
-def split_scid(scid, platformEvent, logger, producer) -> tuple[int, int, int]:
-    # global logger
+def split_scid(scid, platformEvent: PlatformEvent, logger: Logger, producer: KafkaProducer) -> tuple[int, int, int]:
+
     try:
         block, tx, out = map(int, scid.split("x"))
         return block, tx, out

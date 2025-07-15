@@ -1,18 +1,15 @@
 import hashlib
-import json
-from typing import Optional
+from logging import Logger
 
-from lnhistoryclient.model.types import GossipIdCacheValue
 from valkey import Valkey
 
 from config import VALKEY_HOST, VALKEY_PASSWORD, VALKEY_PORT
-from CustomLogger import CustomLogger
 
 
 class ValkeyCache:
     GLOBAL_KEY = "__global__"
 
-    def __init__(self, logger: CustomLogger):
+    def __init__(self, logger: Logger):
         self.logger = logger
         self.client = Valkey(
             host=VALKEY_HOST,
@@ -25,7 +22,7 @@ class ValkeyCache:
     @staticmethod
     def hash_raw_hex(raw_hex: str) -> str:
         return hashlib.sha256(raw_hex.encode()).hexdigest()
-    
+
     @staticmethod
     def hash_raw_bytes(raw_bytes: bytes) -> bytes:
         return hashlib.sha256(raw_bytes).digest()

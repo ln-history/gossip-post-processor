@@ -1,11 +1,13 @@
-from typing import Optional
 import logging
-import requests  # type: ignore[import-untyped]
 import threading
+from typing import Optional
+
+import requests  # type: ignore[import-untyped]
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from config import EXPLORER_RPC_URL, EXPLORER_RPC_PASSWORD
+from config import EXPLORER_RPC_PASSWORD, EXPLORER_RPC_URL
+
 # Limit concurrent requests (you can tune this)
 HTTP_CONCURRENCY_LIMIT = 5
 http_sema = threading.BoundedSemaphore(HTTP_CONCURRENCY_LIMIT)
@@ -20,8 +22,8 @@ adapter = HTTPAdapter(
         backoff_factor=0.3,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["GET"],
-        raise_on_status=False
-    )
+        raise_on_status=False,
+    ),
 )
 session.mount("http://", adapter)
 session.mount("https://", adapter)
